@@ -8,15 +8,9 @@ import time
 import torch
 import torchaudio
 
-
-#download for mecab
-os.system('python -m unidic download')
-
 # By using XTTS you agree to CPML license https://coqui.ai/cpml
 os.environ["COQUI_TOS_AGREED"] = "1"
 
-# langid is used to detect language for longer text
-# Most users expect text to be their own language, there is checkbox to disable it
 import langid
 import base64
 import csv
@@ -33,38 +27,22 @@ from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
 from TTS.utils.generic_utils import get_user_data_dir
 
-HF_TOKEN = os.environ.get("HF_TOKEN")
+# Use local model files
+model_path = "/content/models/xttsv2_2.0.3"
+config_file = os.path.join(model_path, "config.json")
+model_file = os.path.join(model_path, "model.pth")
+vocab_file = os.path.join(model_path, "vocab.json")
 
-from huggingface_hub import HfApi
-
-# will use api to restart space on a unrecoverable error
-api = HfApi(token=HF_TOKEN)
-repo_id = "coqui/xtts"
-
-# Use never ffmpeg binary for Ubuntu20 to use denoising for microphone input
-print("Export newer ffmpeg binary for denoise filter")
-ZipFile("ffmpeg.zip").extractall()
-print("Make ffmpeg binary executable")
-st = os.stat("ffmpeg")
-os.chmod("ffmpeg", st.st_mode | stat.S_IEXEC)
-
-# This will trigger downloading model
-print("Downloading if not downloaded Coqui XTTS V2")
-from TTS.utils.manage import ModelManager
-
-model_name = "tts_models/multilingual/multi-dataset/xtts_v2"
-ModelManager().download_model(model_name)
-model_path = os.path.join(get_user_data_dir("tts"), model_name.replace("/", "--"))
-print("XTTS downloaded")
-
+# Load config
 config = XttsConfig()
-config.load_json(os.path.join(model_path, "config.json"))
+config.load_json(config_file)
 
+# Initialize model
 model = Xtts.init_from_config(config)
 model.load_checkpoint(
     config,
-    checkpoint_path=os.path.join(model_path, "model.pth"),
-    vocab_path=os.path.join(model_path, "vocab.json"),
+    checkpoint_path=model_file,
+    vocab_path=vocab_file,
     eval=True,
     use_deepspeed=True,
 )
@@ -90,9 +68,8 @@ def predict(
     if agree == True:
         if language not in supported_languages:
             gr.Warning(
-                f"Language you put {language} in is not in is not in our Supported Languages, please choose from dropdown"
+                f"Language you put {language} in is not in our Supported Languages, please choose from dropdown"
             )
-
             return (
                 None,
                 None,
@@ -100,29 +77,20 @@ def predict(
                 None,
             )
 
-        language_predicted = langid.classify(prompt)[
-            0
-        ].strip()  # strip need as there is space at end!
+        language_predicted = langid.classify(prompt)[0].strip()  # strip need as there is space at end!
 
-        # tts expects chinese as zh-cn
+        # tts expects Chinese as zh-cn
         if language_predicted == "zh":
-            # we use zh-cn
             language_predicted = "zh-cn"
 
         print(f"Detected language:{language_predicted}, Chosen language:{language}")
 
         # After text character length 15 trigger language detection
         if len(prompt) > 15:
-            # allow any language for short text as some may be common
-            # If user unchecks language autodetection it will not trigger
-            # You may remove this completely for own use
             if language_predicted != language and not no_lang_auto_detect:
-                # Please duplicate and remove this check if you really want this
-                # Or auto-detector fails to identify language (which it can on pretty short text or mixed text)
                 gr.Warning(
-                    f"It looks like your text isn’t the language you chose , if you’re sure the text is the same language you chose, please check disable language auto-detection checkbox"
+                    f"It looks like your text isn’t the language you chose, if you’re sure the text is the same language you chose, please check disable language auto-detection checkbox"
                 )
-
                 return (
                     None,
                     None,
