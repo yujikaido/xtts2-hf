@@ -33,16 +33,24 @@ config_file = os.path.join(model_path, "config.json")
 model_file = os.path.join(model_path, "model.pth")
 vocab_file = os.path.join(model_path, "vocab.json")
 
-# Load config
+# Load config (CORRECTED)
+import json 
 config = XttsConfig()
-config.load_json(config_file)
 
-# Initialize model
+# Load JSON data into a dictionary
+with open("/content/xtts2-hf/models/xttsv2_2.0.3/config.json", "r", encoding="utf8") as f:
+    config_data = json.load(f)
+
+# Update the config object's attributes from the dictionary
+for key, value in config_data.items():
+    setattr(config, key, value)
+
+# Initialize model (Modified to use explicit paths)
 model = Xtts.init_from_config(config)
 model.load_checkpoint(
     config,
-    checkpoint_path=model_file,
-    vocab_path=vocab_file,
+    checkpoint_path="/content/xtts2-hf/models/xttsv2_2.0.3/model.pth",  
+    vocab_path="/content/xtts2-hf/models/xttsv2_2.0.3/vocab.json", 
     eval=True,
     use_deepspeed=True,
 )
