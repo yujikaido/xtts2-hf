@@ -196,7 +196,7 @@ def predict(
                 None,
                 None,
                 None,
-            
+            )
         global DEVICE_ASSERT_DETECTED
         if DEVICE_ASSERT_DETECTED:
             global DEVICE_ASSERT_PROMPT
